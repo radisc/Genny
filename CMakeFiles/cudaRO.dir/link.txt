@@ -1,0 +1,2 @@
+/usr/bin/ar cr libcudaRO.a  CMakeFiles/cudaRO.dir/src/cuda/./cudaRO_generated_cuda_functions.cu.o
+/usr/bin/ranlib libcudaRO.a

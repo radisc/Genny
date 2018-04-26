@@ -1,0 +1,2 @@
+/home/nicola/Workspace/Genny/CMakeFiles/Genny.dir
+/home/nicola/Workspace/Genny/CMakeFiles/cudaRO.dir

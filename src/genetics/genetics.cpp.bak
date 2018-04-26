@@ -1,0 +1,295 @@
+/*
+ * genetics.cpp
+ *
+ *  Created on: 18/mag/2015
+ *      Author: nicola
+ */
+
+#include "vector"
+#include "math.h"
+#include "iostream"
+#include "limits"
+#include "algorithm"
+#include "genetics.h"
+#include "ufl.h"
+
+using namespace std;
+
+Solution generate_ramdom_solution(Instance& inst, int parent_nzcnt ,double sparseness, bool integer){
+
+	int ncols = inst.n_facilities + inst.n_clients;
+
+	Solution random;
+	random.xStar = (double*)malloc(sizeof(double)*(ncols));
+	memset(random.xStar, 0.0f, sizeof(double)*(ncols));
+	random.z_opt = 0.0;
+
+	int variability = 0;
+
+	//int nzcnt_max =  (rand()%(int(inst.n_facilities)))/sparseness ;//*sparseness; //+ ((rand()%(variability/2)) - variability);
+
+	int nzcnt = parent_nzcnt + (rand()%4 - 2) ; //rand()%inst.n_facilities + 1;
+	//cout << "nzcnt: " << nzcnt << endl;
+
+	//Extract random genes
+
+	while(nzcnt>0){
+
+		int r_idx = rand()%inst.n_facilities;
+
+		if(random.xStar[ypos(r_idx, &inst)] != 1.0f){
+
+			random.xStar[ypos(r_idx, &inst)] = 1.0f;
+			random.z_opt += inst.fixed_costs[r_idx];
+			random.non_zero_count++;
+			nzcnt--;
+			//printf("Newcomers cameth\n");
+		}
+
+	}
+
+/*	for(int j = 0 ; j < inst.n_facilities ; j++){
+
+		if(rand() < RAND_MAX*sparseness){
+			random.xStar[ypos(j, &inst)] = 1.0f;
+			random.z_opt += inst.fixed_costs[j];
+			nzcnt++;
+			//cout <<  inst.fixed_costs[j] << endl;
+		} else {
+			random.xStar[j] = 0.0f;
+		}
+	}*/
+
+	//Open at least one
+//	if(nzcnt == 0){
+//		//cout << "WDHFGBCWGINORWGTITBRVETVO" << endl;
+//		int idx = rand()%inst.n_facilities;
+//		random.xStar[ypos(idx, &inst)] = 1.0;
+//		random.z_opt += inst.fixed_costs[idx];
+//	}
+
+	//cout << "New individual zopt beef: " << random.z_opt << endl;
+
+	for(int i = 0 ; i < inst.n_clients ; i++){
+
+		double Wi = IntfunctionI(inst, random.xStar, i);
+		//cout << "W(" << i << "):" <<  Wi << endl;
+		random.xStar[wpos(i, &inst)] = Wi;
+		random.z_opt += Wi;
+	}
+
+	//cout << "New individual zopt afft: " << random.z_opt << endl;
+
+	return random;
+}
+
+/*
+ *Harshness ratio of surviving individuals
+ */
+void selection(vector<Solution>& population, double harshness){
+
+	population.resize(floor(population.size()*harshness));
+
+}
+
+int mutate(int index, int gene, Instance& inst, Solution& sol){
+
+//	if(index == 1925){
+//		cout << "1925 e' mutato!" << endl;
+//		//exit(0);
+//	}
+
+	if (gene == 0.0){
+		if(rand()/4 < RAND_MAX/inst.n_facilities)//cout << "mutation of " << index << " to " << 1 <<  endl;
+			return 1.0;
+		else
+			return 0.0;
+	} else{
+		if(rand() < RAND_MAX/6)			//6 = Non zero count
+			return 0.0;
+		else
+			return 1.0;
+	}
+
+}
+
+int mutate(int index, int gene){
+
+    if(index == 1925){
+        cout << "E' uscito!" << endl;
+        //exit(0);
+    }
+
+    if (gene == 0.0){
+        //cout << "mutation of " << index << " to " << 1 <<  endl;
+        return 1.0;
+    } else{
+        //cout << "mutation of " << index << " to " << 0 <<  endl;
+        return 0.0;
+    }
+
+}
+
+/*	fastCrossover
+ * mutation: probability of change one gene
+ */
+Solution* crossover(Instance& inst, Solution a, Solution b, double mutation){       // ,int nzcnt_best          //mutation= quantity  of mutations
+
+	int ncols = inst.n_facilities + inst.n_clients;
+
+    Solution* children = new Solution[2];
+    children[0].xStar = (double*) calloc(ncols, sizeof(double));		//new double[inst.n_facilities + inst.n_clients];
+    children[1].xStar = (double*) calloc(ncols, sizeof(double));
+    children[0].z_opt = 0.0;
+    children[1].z_opt = 0.0;
+    int cut_point = 0;
+
+    //if(rand() < RAND_MAX)
+    if(rand()*85 < RAND_MAX/100)
+    	cut_point = rand()%inst.n_facilities;
+
+    //int second_cut_point = rand()%inst.n_facilities;			//Matheuristics
+    int mutated_gene_a = rand()%inst.n_facilities;              //extract one/two from pop0's and one/two from others
+    int mutated_gene_b = rand()%inst.n_facilities;
+    															//for(  0 to mutations ) *pick for mutation*
+    int gene_idx;
+
+//    for(int j = 0 ; j < cut_point; j++){
+//
+//        //if(j == mutated_gene){                                                            //if this on...
+//        if(rand() < RAND_MAX/inst.n_facilities){//mutation){                             //...this off
+//            children[0].xStar[ypos(j, &inst)] = memcpy(a + cutpoint);                           //mutate(j, b.xStar[ypos(j, &inst)]);
+//            children[1].xStar[ypos(j, &inst)] = mutate(j, a.xStar[ypos(j, &inst)]);
+//        } else {
+//            children[0].xStar[ypos(j, &inst)] = b.xStar[ypos(j, &inst)];
+//            children[1].xStar[ypos(j, &inst)] = a.xStar[ypos(j, &inst)];
+//        }
+//    }
+
+    //cout << "Memcopying\n";
+
+    //Crossover first part
+    memcpy(children[0].xStar, a.xStar, sizeof(double)*(cut_point));
+    memcpy(children[1].xStar, b.xStar, sizeof(double)*(cut_point));
+    //copy(a.xStar, a.xStar + cut_point, children[0].xStar);
+    //copy(b.xStar, b.xStar + cut_point, children[1].xStar);
+
+   // cout << "First half done\n";
+
+    //Crossover second part
+    memcpy(&children[0].xStar[cut_point], &b.xStar[cut_point] , sizeof(double) * (inst.n_facilities - cut_point));
+    memcpy(&children[1].xStar[cut_point], &a.xStar[cut_point] , sizeof(double) * (inst.n_facilities - cut_point));
+
+    //copy(a.xStar + cut_point , a.xStar + inst.n_facilities, children[1].xStar + cut_point );
+    //copy(b.xStar + cut_point , b.xStar + inst.n_facilities, children[0].xStar + cut_point );
+
+    //cout << "Second half done\n";
+
+//    children[0].xStar[mutated_gene_a] = mutate(mutated_gene_a, children[0].xStar[mutated_gene_a]);
+//    children[1].xStar[mutated_gene_b] = mutate(mutated_gene_b, children[1].xStar[mutated_gene_b]);
+
+    for(int j = 0; j < inst.n_facilities ; j++){
+
+        //if(rand()/3 < RAND_MAX/inst.n_facilities){
+        children[0].xStar[ypos(j, &inst)] = mutate(j, b.xStar[ypos(j, &inst)], inst, children[0]);
+//        }else
+//            children[0].xStar[ypos(j, &inst)] = a.xStar[ypos(j, &inst)];
+
+//        if(rand()/3 < RAND_MAX/inst.n_facilities)
+		children[1].xStar[ypos(j, &inst)] = mutate(j, a.xStar[ypos(j, &inst)], inst, children[1]);
+//		else
+//			children[1].xStar[ypos(j, &inst)] = b.xStar[ypos(j, &inst)];
+    }
+
+    for(int j = 0 ; j < inst.n_facilities ; j++){
+        if(children[0].xStar[ypos(j, &inst)] == 1.0){
+            children[0].z_opt += inst.fixed_costs[j];
+            children[0].non_zero_count++;
+        }
+        if(children[1].xStar[ypos(j, &inst)] == 1.0){
+            children[1].z_opt += inst.fixed_costs[j];
+            children[1].non_zero_count++;
+        }
+    }
+
+    for(int i = 0 ; i < inst.n_clients ; i++){
+
+        double Wi_0 = IntfunctionI(inst, children[0].xStar, i);
+        double Wi_1 = IntfunctionI(inst, children[1].xStar, i);
+        //cout << "W(" << i << "):" <<  Wi_0;
+        //cout << "W(" << i << "):" <<  Wi_1;
+        children[0].xStar[wpos(i, &inst)] = Wi_0;
+        children[0].z_opt += Wi_0;
+        children[1].xStar[wpos(i, &inst)] = Wi_1;
+        children[1].z_opt += Wi_1;
+    }
+
+    return children;
+}
+
+/*
+ * mutation: probability of change one gene
+ */
+Solution* slowCrossover(Instance& inst, Solution a, Solution b, double mutation){
+
+	Solution* children = new Solution[2];
+	children[0].xStar = new double[inst.n_facilities + inst.n_clients];
+	children[1].xStar = new double[inst.n_facilities + inst.n_clients];
+	children[0].z_opt = 0.0;
+	children[1].z_opt = 0.0;
+
+
+	int cut_point = rand()%inst.n_facilities;
+	int mutated_gene = rand()%inst.n_facilities;
+	int gene_idx;
+
+	for(int j = 0 ; j < cut_point; j++){
+
+		//if(j == mutated_gene){
+		if(rand() < RAND_MAX/inst.n_facilities){//mutation){
+			children[0].xStar[ypos(j, &inst)] = mutate(j, b.xStar[ypos(j, &inst)]);
+			children[1].xStar[ypos(j, &inst)] = mutate(j, a.xStar[ypos(j, &inst)]);
+		} else {
+			children[0].xStar[ypos(j, &inst)] = b.xStar[ypos(j, &inst)];
+			children[1].xStar[ypos(j, &inst)] = a.xStar[ypos(j, &inst)];
+		}
+	}
+
+	for(int j = cut_point; j < inst.n_facilities ; j++){
+
+		//if(j == mutated_gene){
+		if(rand() < RAND_MAX/inst.n_facilities){
+			children[0].xStar[ypos(j, &inst)] = mutate(j, b.xStar[ypos(j, &inst)]);
+			children[1].xStar[ypos(j, &inst)] = mutate(j, a.xStar[ypos(j, &inst)]);
+		} else {
+			children[0].xStar[ypos(j, &inst)] = a.xStar[ypos(j, &inst)];
+			children[1].xStar[ypos(j, &inst)] = b.xStar[ypos(j, &inst)];
+		}
+	}
+
+	for(int j = 0 ; j < inst.n_facilities ; j++){
+		if(children[0].xStar[ypos(j, &inst)] == 1.0){
+			children[0].z_opt += inst.fixed_costs[j];
+			children[0].non_zero_count++;
+		}
+		if(children[1].xStar[ypos(j, &inst)] == 1.0){
+			children[1].z_opt += inst.fixed_costs[j];
+			children[1].non_zero_count++;
+		}
+	}
+
+
+	for(int i = 0 ; i < inst.n_clients ; i++){
+
+		double Wi_0 = IntfunctionI(inst, children[0].xStar, i);
+		double Wi_1 = IntfunctionI(inst, children[1].xStar, i);
+		//cout << "W(" << i << "):" <<  Wi << endl;
+		children[0].xStar[wpos(i, &inst)] = Wi_0;
+		children[0].z_opt += Wi_0;
+		children[1].xStar[wpos(i, &inst)] = Wi_1;
+		children[1].z_opt += Wi_1;
+	}
+
+	return children;
+}
+
