@@ -2,6 +2,7 @@
 Genetic algorithm for Uncapacitated Facility Location problem
 
 Instrunctions:
+
 0) Install cuda
 1) git clone
 2) cmake .
